@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Диагностика управленческих паттернов</title>
+<style>
+:root{
+  --bg-color:#f8fafc; --card-bg:#ffffff; --text-main:#0f172a; --text-muted:#475569;
+  --accent:#2563eb; --accent-hover:#1d4ed8; --error:#dc2626; --success:#16a34a; --border:#000000;
+  --A:#dc2626; --B:#2563eb; --C:#0d9488; --D:#9333ea;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;font-family:inherit;}
+body{
+  background:var(--bg-color);color:var(--text-main);padding:20px;
+  display:flex;justify-content:center;align-items:flex-start;min-height:100vh;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+.app-container{width:100%;max-width:420px;background:var(--card-bg);border:2px solid var(--border);box-shadow:3px 3px 0 var(--border);padding:16px;position:relative;}
+.screen{display:none;}
+.screen.active{display:block;}
+h1{font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:-0.5px;margin-bottom:20px;border-bottom:3px solid var(--border);padding-bottom:10px;}
+h2{font-size:20px;font-weight:700;margin:24px 0 12px;}
+h3{font-size:16px;font-weight:700;margin:12px 0 8px;}
+p{font-size:16px;line-height:1.6;color:var(--text-muted);margin-bottom:16px;}
+ul{padding-left:22px;margin:0 0 14px;color:var(--text-muted);}
+ul li{margin-bottom:4px;line-height:1.55;}
+.btn{background:var(--accent);color:#fff;border:2px solid var(--border);padding:12px 24px;font-size:16px;font-weight:700;cursor:pointer;text-transform:uppercase;box-shadow:3px 3px 0 var(--border);transition:transform .1s,box-shadow .1s;margin-right:10px;margin-top:15px;}
+.btn:hover{background:var(--accent-hover);}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--border);}
+.btn-secondary{background:#e2e8f0;color:var(--text-main);}
+.btn-secondary:hover{background:#cbd5e1;}
+.btn-danger{background:var(--error);}
+.btn-success{background:var(--success);}
+.btn:disabled{opacity:.55;cursor:not-allowed;}
+.progress-bar{height:8px;background:#e2e8f0;border:2px solid var(--border);margin-bottom:24px;overflow:hidden;}
+.progress-fill{height:100%;background:var(--accent);width:0%;transition:width .3s ease;}
+.progress-caption{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:8px;display:flex;justify-content:space-between;}
+.question-text{font-size:18px;font-weight:700;color:var(--text-main);margin-bottom:25px;padding:12px 15px;background:#f1f5f9;border-left:5px solid var(--accent);}
+.options-list{display:flex;flex-direction:column;gap:12px;}
+.option-item{display:flex;align-items:center;border:2px solid var(--border);padding:14px;background:#fff;gap:16px;}
+.option-tag{font-weight:800;font-size:14px;padding:4px 8px;border:2px solid var(--border);background:#f1f5f9;flex-shrink:0;}
+.option-desc{font-size:15px;line-height:1.45;color:var(--text-main);flex:1;}
+.rank-buttons{display:flex;gap:6px;flex-shrink:0;}
+.rank-btn{width:38px;height:38px;border:2px solid var(--border);background:#fff;cursor:pointer;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s,transform .05s;border-radius:4px;color:var(--text-main);}
+.rank-btn:hover{background:#e2e8f0;}
+.rank-btn.selected{background:var(--accent);color:#fff;}
+.rank-btn.flash-error{background:var(--error)!important;color:#fff!important;animation:rankFlash .5s ease;}
+@keyframes rankFlash{0%{background:var(--error);transform:scale(1.1);}100%{background:#fff;transform:scale(1);}}
+.rules-box{background:#f1f5f9;padding:16px;border-left:4px solid var(--accent);margin-bottom:20px;font-size:14px;line-height:1.6;color:var(--text-main);}
+.rules-box b{color:var(--accent);}
+.nav-row{display:flex;justify-content:space-between;align-items:center;margin-top:24px;gap:10px;flex-wrap:wrap;}
+.err-msg{color:var(--error);font-size:14px;font-weight:700;min-height:20px;margin-top:14px;}
+
+/* Result */
+.profile-pill{display:inline-block;padding:4px 12px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border:2px solid var(--border);background:#f1f5f9;}
+.profile-title{font-size:28px;font-weight:800;margin:8px 0 18px;letter-spacing:-.5px;}
+.score-pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
+.score-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:2px solid var(--border);font-size:13px;font-weight:700;background:#fff;}
+.score-pill .dot{display:inline-block;width:10px;height:10px;border:1.5px solid var(--border);}
+.results-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media (max-width:720px){.results-grid{grid-template-columns:1fr;}}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--text-muted);justify-content:center;margin-top:10px;}
+.legend .dot{display:inline-block;width:10px;height:10px;border:1.5px solid var(--border);margin-right:6px;vertical-align:middle;}
+.func-row{display:grid;grid-template-columns:170px 1fr 42px;gap:10px;align-items:center;margin:6px 0;font-size:14px;}
+.bar{height:10px;background:#e2e8f0;border:2px solid var(--border);overflow:hidden;}
+.bar>span{display:block;height:100%;background:var(--accent);}
+.func-value{font-weight:700;text-align:right;}
+.weak-list li{margin-bottom:8px;color:var(--text-main);}
+.matrix-wrap{display:flex;justify-content:center;margin:10px 0 6px;}
+
+@media print{
+  body{background:#fff;padding:0;}
+  .app-container{box-shadow:none;border:1px solid #999;padding:20px;max-width:none;}
+  .no-print{display:none!important;}
+  .screen{display:none;}
+  #result{display:block!important;}
+  h1,h2,h3{break-after:avoid;}
+  .func-row,.option-item,.results-grid>div{break-inside:avoid;}
+  .page-break{break-before:page;page-break-before:always;}
+  .answers-print .ans-q{break-inside:avoid;margin-bottom:8px;}
+}
+.answers-print{margin:10px 0 14px;}
+.answers-print .ans-q{border:2px solid var(--border);padding:10px 12px;margin-bottom:10px;background:#fff;}
+.answers-print .ans-q .ans-t{font-weight:700;font-size:14px;margin-bottom:6px;}
+.answers-print .ans-q .ans-o{font-size:13px;line-height:1.4;display:flex;gap:8px;margin:2px 0;color:var(--text-main);}
+.answers-print .ans-rank{flex-shrink:0;width:22px;height:22px;border:2px solid var(--border);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;background:#f1f5f9;}
+
+/* ===== Mobile adaptation ===== */
+/* Always mobile — container is locked to phone width */
+body{padding:8px;}
+h1{font-size:19px;letter-spacing:0;margin-bottom:14px;padding-bottom:8px;}
+h2{font-size:17px;margin:18px 0 10px;}
+h3{font-size:15px;}
+p{font-size:14px;margin-bottom:12px;}
+.rules-box{font-size:13px;padding:12px;}
+.btn{padding:12px 16px;font-size:14px;margin-right:6px;margin-top:10px;width:100%;}
+.nav-row{flex-direction:column-reverse;}
+.nav-row .btn{margin:0;}
+.progress-caption{font-size:11px;}
+.question-text{font-size:15px;padding:10px 12px;margin-bottom:18px;}
+.option-item{flex-direction:column;align-items:stretch;padding:12px;gap:10px;}
+.option-tag{align-self:flex-start;}
+.option-desc{font-size:14px;}
+.rank-buttons{justify-content:space-between;gap:8px;}
+.rank-btn{flex:1;height:44px;width:auto;font-size:16px;}
+.profile-title{font-size:22px;}
+.results-grid{grid-template-columns:1fr;}
+.func-row{grid-template-columns:1fr;gap:4px;}
+.func-row .func-value{text-align:left;}
+.matrix-wrap svg{max-width:100%;height:auto;}
+</style>
+</head>
+<body>
+<div class="app-container">
+
+<section id="intro" class="screen active">
+  <h1>Диагностика управленческих паттернов</h1>
+  <div class="rules-box">
+    <p style="margin:0 0 8px;color:var(--text-main);"><b>Как проходить опросник</b></p>
+    Перед вами 12 рабочих ситуаций. В каждой — четыре варианта действий.<br>
+    Ранжируйте варианты по тому, насколько они характерны именно для вас:<br>
+    <b>1</b> — наиболее характерно &nbsp; <b>2</b> — скорее характерно &nbsp; <b>3</b> — скорее не характерно &nbsp; <b>4</b> — наименее характерно.<br>
+    Используйте каждую оценку <b>только один раз</b> в рамках одного вопроса. Отвечайте так, как обычно поступаете в реальной работе, а не «как правильно».
+  </div>
+  <p style="font-size:14px;">Прохождение занимает 7–10 минут. Результаты не сохраняются на сервере.</p>
+  <button class="btn" id="startBtn">Начать опрос</button>
+</section>
+
+<section id="quiz" class="screen">
+  <div class="progress-caption">
+    <span id="qCounter">Вопрос 1 из 12</span>
+    <span id="qPct">0%</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="question-text" id="qTitle"></div>
+  <div class="options-list" id="qOptions"></div>
+  <div class="err-msg" id="qError"></div>
+  <div class="nav-row">
+    <button class="btn btn-secondary" id="prevBtn">← Назад</button>
+    <button class="btn" id="nextBtn">Далее →</button>
+  </div>
+</section>
+
+<section id="result" class="screen">
+  <div id="resultContent"></div>
+  <div class="nav-row no-print">
+    <button class="btn btn-success" id="saveBtn">Сохранить файл</button>
+    <button class="btn btn-secondary" id="restartBtn">Пройти заново</button>
+    <button class="btn btn-danger" id="finishBtn">Завершить</button>
+  </div>
+</section>
+
+</div>
+
+<script>
+/* =================== Данные =================== */
+var QUESTIONS = [
+  { t:"Угроза срыва крупной сделки в конце месяца", o:{
+    A:"Лично подключусь к переговорам и постараюсь закрыть сделку самостоятельно.",
+    B:"Возьму ситуацию на особый контроль и введу ежедневный мониторинг статуса сделки.",
+    C:"Разберу причины возникновения риска и скорректирую процесс работы с подобными сделками.",
+    D:"Обсужу ситуацию с менеджером и помогу ему самостоятельно выработать план действий."}},
+  { t:"Сильный менеджер систематически не заполняет CRM", o:{
+    A:"Сам внесу необходимые данные или попрошу сделать это кого-то другого.",
+    B:"Усилю контроль качества ведения CRM и включу этот показатель в регулярную оценку работы.",
+    C:"Настрою процесс таким образом, чтобы работа без заполнения CRM была невозможна или существенно затруднена.",
+    D:"Проведу индивидуальную встречу и помогу сотруднику увидеть практическую ценность CRM для его работы."}},
+  { t:"Новичок допускает много ошибок в первый месяц работы", o:{
+    A:"Возьму часть сложных задач на себя, чтобы избежать потери клиентов.",
+    B:"Составлю план адаптации с контрольными точками и регулярной проверкой результатов.",
+    C:"Доработаю систему адаптации, базу знаний и программу ввода в должность.",
+    D:"Организую регулярную поддержку и разбор ошибок с акцентом на обучение сотрудника."}},
+  { t:"Два менеджера конфликтуют из-за распределения клиента", o:{
+    A:"Сам приму решение и заберу ситуацию под личное управление.",
+    B:"Определю ответственного и зафиксирую обязательные правила для подобных случаев.",
+    C:"Разработаю прозрачный механизм распределения клиентов для всей команды.",
+    D:"Помогу сотрудникам самостоятельно договориться и найти рабочее решение."}},
+  { t:"Сотрудники постоянно обращаются к вам с мелкими вопросами", o:{
+    A:"Буду быстро отвечать сам, чтобы не тратить время на обсуждения.",
+    B:"Установлю порядок обращения к руководителю и контроль его соблюдения.",
+    C:"Создам систему поиска ответов и понятные правила принятия решений.",
+    D:"Буду развивать самостоятельность сотрудников через вопросы и обсуждение вариантов решений."}},
+  { t:"У опытного сотрудника резко снизились результаты", o:{
+    A:"Лично помогу ему закрыть часть сделок и восстановить показатели.",
+    B:"Усилю контроль активности и введу дополнительные контрольные точки.",
+    C:"Проанализирую показатели и найду возможные сбои в процессе работы.",
+    D:"Обсужу причины ситуации и помогу сотруднику сформировать план восстановления результатов."}},
+  { t:"Команда систематически нарушает сроки предоставления отчётности", o:{
+    A:"Сам соберу необходимые данные и подготовлю отчёт.",
+    B:"Закреплю ответственность и усилю контроль соблюдения сроков.",
+    C:"Упрощу или автоматизирую процесс подготовки отчётности.",
+    D:"Обсужу с командой значение отчётности и вовлеку сотрудников в поиск решения проблемы."}},
+  { t:"В вашем графике неожиданно появилось свободное время", o:{
+    A:"Займусь сложными клиентами или накопившимися операционными задачами.",
+    B:"Проверю статус выполнения задач и текущие показатели сотрудников.",
+    C:"Использую время для улучшения процессов, планирования или анализа работы отдела.",
+    D:"Проведу встречи по развитию сотрудников или обучающие активности."}},
+  { t:"Руководство требует заметно увеличить результаты команды", o:{
+    A:"Лично включусь в продажи и покажу пример высокой результативности.",
+    B:"Усилю контроль ключевых показателей и регулярность управленческих проверок.",
+    C:"Пересмотрю процессы, систему мотивации и организацию работы команды.",
+    D:"Вовлеку сотрудников в поиск решений и развитие новых подходов к работе."}},
+  { t:"Сотрудники постоянно согласовывают с вами нестандартные скидки", o:{
+    A:"Буду принимать решения самостоятельно в каждом отдельном случае.",
+    B:"Введу обязательный порядок согласования и контроль его соблюдения.",
+    C:"Разработаю правила принятия решений по скидкам и границы самостоятельности сотрудников.",
+    D:"Помогу сотрудникам научиться самостоятельно оценивать подобные ситуации и принимать решения."}},
+  { t:"Появилась новая задача, которую раньше отдел не выполнял", o:{
+    A:"Выполню её самостоятельно, чтобы гарантировать результат.",
+    B:"Распределю работу между сотрудниками и организую контроль выполнения.",
+    C:"Встрою новую задачу в процессы, роли и зоны ответственности.",
+    D:"Передам задачу сотруднику как возможность развития и окажу необходимую поддержку."}},
+  { t:"Подготовка и проведение регулярной планёрки", o:{
+    A:"Сам сообщу всю необходимую информацию и распределю поручения.",
+    B:"Использую встречу для контроля выполнения задач и анализа результатов.",
+    C:"Проведу встречу по заранее установленному регламенту с использованием единых стандартов работы.",
+    D:"Организую обмен опытом, обсуждение лучших практик и совместный поиск решений."}}
+];
+
+var TYPE_NAME  = { A:"Эксперт продаж", B:"Администратор", C:"Системный руководитель", D:"Наставник" };
+var TYPE_COLOR = { A:"#dc2626", B:"#2563eb", C:"#0d9488", D:"#9333ea" };
+var SCORE_MAP  = { 1:3, 2:1, 3:-1, 4:-3 };
+
+var PROFILES = {
+  A:{name:"Эксперт продаж",
+    strengths:["Высокая личная экспертиза и вовлечённость в продажи.","Способность лично закрывать сложные сделки и удерживать ключевых клиентов.","Команда видит образец результативной работы."],
+    risks:["Команда становится зависимой от руководителя.","Сложно масштабировать результаты отдела.","Сотрудники теряют инициативу и навыки самостоятельной работы."],
+    growth:["Чаще передавать задачи и поддерживать сотрудников в их выполнении.","Развивать процессы и регламенты, снижающие зависимость от ручного участия.","Учиться видеть систему, а не только отдельные сделки."]},
+  B:{name:"Администратор",
+    strengths:["Чёткая исполнительская дисциплина и предсказуемость работы.","Понятные правила и регулярный контроль ключевых показателей.","Прозрачность ответственности в команде."],
+    risks:["Риск чрезмерного контроля и микроменеджмента.","Ограниченное развитие самостоятельности сотрудников.","Снижение инициативы и вовлечённости команды."],
+    growth:["Усиливать развивающие практики и наставничество.","Делегировать больше решений на уровень сотрудников.","Балансировать контроль с поддержкой инициативы."]},
+  C:{name:"Системный руководитель",
+    strengths:["Устойчивые результаты за счёт отлаженных процессов.","Способность масштабировать работу команды.","Системный взгляд на причины проблем и зоны улучшений."],
+    risks:["Излишняя процессность может снижать гибкость в нестандартных ситуациях.","Внимание к системе иногда отвлекает от индивидуальной работы с людьми.","Сложность быстрых решений в условиях неопределённости."],
+    growth:["Сохранять баланс между системой и гибкостью.","Усиливать индивидуальную поддержку сотрудников.","Регулярно пересматривать процессы под изменившиеся условия."]},
+  D:{name:"Наставник",
+    strengths:["Сильное развитие сотрудников и рост их самостоятельности.","Высокая вовлечённость и доверие в команде.","Хорошая среда для обучения и обмена опытом."],
+    risks:["Недостаточное внимание к процессам и управленческой системе.","Дисциплина и сроки могут проседать.","Размытие ответственности в команде."],
+    growth:["Усиливать управленческую систему: цели, контроль, регламенты.","Чётче фиксировать договорённости и сроки.","Балансировать развитие сотрудников с операционным результатом."]},
+  "A+B":{name:"Эксперт продаж — Администратор",
+    strengths:["Личная экспертиза и дисциплина одновременно.","Высокая оперативность и предсказуемость работы.","Чёткое управление результатом по ключевым показателям."],
+    risks:["Высокая нагрузка на руководителя и риск выгорания.","Команда привыкает к контролю и личному вмешательству.","Мало пространства для инициативы и развития сотрудников."],
+    growth:["Перенести часть личного участия в системные решения.","Развивать наставничество и самостоятельность команды.","Делегировать оперативные задачи и фокус на управленческой системе."]},
+  "A+C":{name:"Эксперт продаж — Системный руководитель",
+    strengths:["Сильная экспертиза подкреплена системным взглядом.","Способность улучшать процессы на основе практики продаж.","Управление через личный пример и отлаженные процессы."],
+    risks:["Перегрузка из-за совмещения операционной и системной работы.","Недостаток внимания к индивидуальной работе с людьми.","Сложности с делегированием экспертных задач."],
+    growth:["Сместить акцент с личных продаж на построение системы.","Развивать индивидуальную поддержку сотрудников.","Передавать экспертизу команде через стандарты и обучение."]},
+  "A+D":{name:"Эксперт продаж — Наставник",
+    strengths:["Личная экспертиза работает как ресурс для развития команды.","Сильная вовлечённость и доверие сотрудников.","Образец результативной работы и поддержка одновременно."],
+    risks:["Слабая управленческая система и дисциплина.","Зависимость команды от лидера в сложных ситуациях.","Размытые правила и сроки."],
+    growth:["Выстраивать процессы, регламенты и контрольные точки.","Делегировать управленческие решения и фиксировать ответственность.","Балансировать наставничество с операционной дисциплиной."]},
+  "B+C":{name:"Администратор — Системный руководитель",
+    strengths:["Сильная управленческая система: процессы плюс контроль.","Высокая предсказуемость и устойчивость результатов.","Прозрачные правила и ответственность."],
+    risks:["Излишняя формализация и снижение гибкости.","Недостаток индивидуальной работы с людьми.","Снижение инициативы и развития сотрудников."],
+    growth:["Усиливать наставничество и индивидуальные встречи.","Оставлять пространство для инициативы и нестандартных решений.","Развивать вовлечённость и мотивацию команды."]},
+  "B+D":{name:"Администратор — Наставник",
+    strengths:["Сочетание дисциплины и развития сотрудников.","Чёткие правила и поддержка одновременно.","Высокая управляемость с вниманием к людям."],
+    risks:["Дефицит системных решений и оптимизации процессов.","Перегрузка руководителя двумя ролями.","Возможные противоречия между контролем и поддержкой."],
+    growth:["Развивать системный взгляд: процессы, организация работы.","Передавать часть контроля в правила и инструменты.","Усиливать стратегическое мышление и анализ."]},
+  "C+D":{name:"Системный руководитель — Наставник",
+    strengths:["Развитые процессы и сильное развитие людей.","Устойчивые результаты и высокая вовлечённость.","Зрелая управленческая позиция."],
+    risks:["Возможный дефицит дисциплины и жёсткости в кризисных ситуациях.","Снижение оперативности в нестандартных задачах.","Недостаток личного участия в ключевых сделках."],
+    growth:["Усиливать дисциплину и контроль критичных показателей.","Развивать готовность к личному включению в важных ситуациях.","Поддерживать баланс между системой и оперативностью."]},
+  BAL:{name:"Сбалансированный руководитель",
+    strengths:["Гибкое использование разных управленческих стилей под ситуацию.","Отсутствие выраженных перекосов и слабых зон.","Способность сочетать ориентацию на задачи, людей и систему."],
+    risks:["Отсутствие выраженного управленческого почерка.","Ситуативность вместо осознанного выбора подхода.","Риск распыления внимания между разными ролями."],
+    growth:["Осознанно усиливать ту роль, которая даёт максимальный эффект для бизнеса.","Развивать управленческую идентичность и стиль.","Системно работать с самыми слабыми из управленческих функций."]}
+};
+
+var ADAIR_FUNCS = [
+  { key:"setting",  name:"Постановка задачи",  calc:function(p){return (p.A+p.B)/2;}, tip:"Чётко формулируйте цели, ожидаемые результаты и критерии выполнения задачи." },
+  { key:"planning", name:"Планирование",       calc:function(p){return p.C;},         tip:"Структурируйте работу по этапам, срокам и ресурсам — заранее, а не по ходу." },
+  { key:"briefing", name:"Инструктаж",         calc:function(p){return (p.A+p.D)/2;}, tip:"Объясняйте контекст и критерии успеха перед стартом задачи." },
+  { key:"control",  name:"Контроль",           calc:function(p){return p.B;},         tip:"Введите регулярные контрольные точки и обратную связь по статусу." },
+  { key:"eval",     name:"Оценка результатов", calc:function(p){return (p.B+p.C)/2;}, tip:"Подводите итоги и связывайте их с целями, стандартами и развитием сотрудника." },
+  { key:"motiv",    name:"Мотивация",          calc:function(p){return p.D;},         tip:"Поддерживайте вовлечённость через признание, развитие и обратную связь." },
+  { key:"org",      name:"Организация работы", calc:function(p){return p.C;},         tip:"Распределяйте роли, согласовывайте взаимодействие, убирайте дублирование." },
+  { key:"example",  name:"Личный пример",      calc:function(p){return p.A;},         tip:"Демонстрируйте стандарты работы и ожидания собственным поведением." }
+];
+
+/* =================== Состояние =================== */
+function shuffle(arr){ var a=arr.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var tmp=a[i]; a[i]=a[j]; a[j]=tmp; } return a; }
+function emptyAnswers(){ var out=[]; for(var i=0;i<QUESTIONS.length;i++) out.push({A:null,B:null,C:null,D:null}); return out; }
+function makeOrders(){ var out=[]; for(var i=0;i<QUESTIONS.length;i++) out.push(shuffle(["A","B","C","D"])); return out; }
+var state = { qIndex:0, answers: emptyAnswers(), orders: makeOrders() };
+
+/* =================== Утилиты =================== */
+function $(id){ return document.getElementById(id); }
+function showScreen(id){
+  var screens = document.querySelectorAll(".screen");
+  for(var i=0;i<screens.length;i++) screens[i].classList.remove("active");
+  $(id).classList.add("active");
+  window.scrollTo(0,0);
+}
+function isFilled(a){
+  var used = {};
+  for(var i=0;i<["A","B","C","D"].length;i++){
+    var value = a[["A","B","C","D"][i]];
+    if(value===null || used[value]) return false;
+    used[value] = true;
+  }
+  return true;
+}
+function fmt(n){ return n>0?"+"+n:String(n); }
+
+/* =================== Опрос =================== */
+$("startBtn").onclick = function(){ state.qIndex=0; state.orders=makeOrders(); renderQuestion(); showScreen("quiz"); };
+$("restartBtn").onclick = function(){
+  state = { qIndex:0, answers: emptyAnswers(), orders: makeOrders() };
+  showScreen("intro");
+};
+$("finishBtn").onclick = function(){ window.close(); setTimeout(function(){ document.body.innerHTML='<div style="padding:40px;text-align:center;font-family:sans-serif"><h2>Диагностика завершена</h2><p>Окно можно закрыть.</p></div>'; },150); };
+$("saveBtn").onclick = function(){
+  var titleEl = document.querySelector('.profile-title');
+  var title = titleEl && titleEl.textContent ? titleEl.textContent.trim() : 'Результат';
+  var styleTags = document.querySelectorAll('style');
+  var cssParts = [];
+  for(var i=0;i<styleTags.length;i++) cssParts.push(styleTags[i].textContent);
+  var css = cssParts.join('\n');
+  var content = $("resultContent").innerHTML;
+  var html = '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>'+title+'</title><style>'+css+'</style></head><body><div class="app-container"><section id="result" class="screen active">'+content+'</section></div></body></html>';
+  var fileName = 'diagnostika-'+title.replace(/\s+/g,'-').toLowerCase()+'.html';
+  var blob = new Blob([html], {type:'text/html;charset=utf-8'});
+
+  // 1) iOS / Android: системный share-sheet с файлом (Web Share API Level 2)
+  try {
+    var file = new File([blob], fileName, {type:'text/html'});
+    if (navigator.canShare && navigator.canShare({files:[file]})) {
+      navigator.share({files:[file], title:title, text:title}).catch(function(){});
+      return;
+    }
+  } catch(e) {}
+
+  // 2) iOS Safari fallback: открываем результат в новой вкладке —
+  //    пользователь сохранит через «Поделиться → Сохранить в файлы».
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isIOS) {
+    var w = window.open('', '_blank');
+    if (w) { w.document.open(); w.document.write(html); w.document.close(); }
+    else { alert('Разрешите всплывающие окна, чтобы сохранить результат.'); }
+    return;
+  }
+
+  // 3) Десктоп / Android: классическое скачивание через <a download>
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = fileName;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+};
+$("prevBtn").onclick = function(){ if(state.qIndex>0){state.qIndex--;renderQuestion();} };
+$("nextBtn").onclick = function(){
+  if(!isFilled(state.answers[state.qIndex])){
+    $("qError").textContent = "Расставьте все четыре оценки (1, 2, 3, 4) — каждую один раз.";
+    return;
+  }
+  $("qError").textContent="";
+  if(state.qIndex < QUESTIONS.length-1){ state.qIndex++; renderQuestion(); }
+  else { renderResult(); showScreen("result"); }
+};
+
+function renderQuestion(){
+  var q = QUESTIONS[state.qIndex];
+  var ans = state.answers[state.qIndex];
+  var pct = Math.round(state.qIndex/QUESTIONS.length*100);
+  $("qCounter").textContent = "Вопрос "+(state.qIndex+1)+" из "+QUESTIONS.length;
+  $("qPct").textContent = pct+"%";
+  $("progressFill").style.width = pct+"%";
+  $("qTitle").textContent = (state.qIndex+1)+". "+q.t;
+  $("qError").textContent = "";
+
+  var box = $("qOptions"); box.innerHTML = "";
+  for(var i=0;i<state.orders[state.qIndex].length;i++){
+    var k = state.orders[state.qIndex][i];
+    var row = document.createElement("div");
+    row.className = "option-item";
+
+    var desc = document.createElement("div");
+    desc.className = "option-desc";
+    desc.textContent = q.o[k];
+
+    var ranks = document.createElement("div");
+    ranks.className = "rank-buttons";
+    for(var r=1;r<=4;r++){
+      var b = document.createElement("button");
+      b.className = "rank-btn"+(ans[k]===r?" selected":"");
+      b.textContent = r;
+      b.onclick = (function(key, rank, btn){ return function(){ handleRankClick(key, rank, btn); }; })(k,r,b);
+      ranks.appendChild(b);
+    }
+
+    row.appendChild(desc);
+    row.appendChild(ranks);
+    box.appendChild(row);
+  }
+
+  $("prevBtn").disabled = state.qIndex===0;
+  $("nextBtn").textContent = state.qIndex===QUESTIONS.length-1 ? "Показать результат →" : "Далее →";
+}
+
+function handleRankClick(key, rank, btn){
+  var ans = state.answers[state.qIndex];
+  // повторное нажатие — снятие
+  if(ans[key]===rank){ ans[key]=null; renderQuestion(); return; }
+  // конфликт: этот ранг уже стоит у другого варианта
+  var conflict = null;
+  var keys = ["A","B","C","D"];
+  for(var i=0;i<keys.length;i++){
+    if(keys[i]!==key && ans[keys[i]]===rank){ conflict = keys[i]; break; }
+  }
+  if(conflict){
+    btn.classList.add("flash-error");
+    setTimeout(function(){ btn.classList.remove("flash-error"); },500);
+    $("qError").textContent = "Оценка "+rank+" уже стоит у другого варианта. Сначала снимите её.";
+    return;
+  }
+  ans[key] = rank;
+  $("qError").textContent="";
+  renderQuestion();
+}
+
+/* =================== Расчёты =================== */
+function computeTotals(){
+  var t={A:0,B:0,C:0,D:0};
+  var keys = ["A","B","C","D"];
+  for(var i=0;i<state.answers.length;i++){
+    var a = state.answers[i];
+    for(var j=0;j<keys.length;j++) t[keys[j]]+=SCORE_MAP[a[keys[j]]];
+  }
+  return t;
+}
+function normalize(s){ return ((s+36)/72)*100; }
+function computeCoords(t){ return { X:(t.C+t.D)-(t.A+t.B), Y:(t.B+t.C)-(t.A+t.D) }; }
+
+function determineProfile(t){
+  var arr=[["A",t.A],["B",t.B],["C",t.C],["D",t.D]].sort(function(a,b){ return b[1]-a[1]; });
+  var first=arr[0], second=arr[1], fourth=arr[3];
+  if(first[1]-fourth[1] <= 6) return {kind:"balanced", key:"BAL"};
+  if(first[1]-second[1] >= 8) return {kind:"pure", key:first[0]};
+  return {kind:"hybrid", key:[first[0],second[0]].sort().join("+")};
+}
+
+/* =================== «Парус» =================== */
+function renderSail(t){
+  var W=420,H=420,pad=58;
+  var cx=W/2, cy=H/2;
+  var inner=(W-pad*2)/2;
+  var halfDiag = inner; // от центра до угла внутреннего квадрата
+  var S=Math.SQRT2;
+  // Y инвертирована в SVG (вверх = -y).
+  // B ↖, A ↙, C ↗, D ↘
+  var dirs = {
+    B:[-1/S,-1/S],
+    A:[-1/S, 1/S],
+    C:[ 1/S,-1/S],
+    D:[ 1/S, 1/S]
+  };
+  function pt(k){
+    var r=(t[k]+36)/72;
+    var ux=dirs[k][0], uy=dirs[k][1];
+    return [cx+ux*halfDiag*r, cy+uy*halfDiag*r];
+  }
+  var pA=pt("A"),pB=pt("B"),pC=pt("C"),pD=pt("D");
+  var poly=[pA,pB,pC,pD].map(function(p){ return p.join(","); }).join(" ");
+
+  var qLabels=[
+    {x:pad+8,   y:pad+6,        anchor:"start", lines:["Администратор"],            k:"B"},
+    {x:W-pad-8, y:pad+6,        anchor:"end",   lines:["Системный","руководитель"], k:"C"},
+    {x:pad+8,   y:H-pad-36,     anchor:"start", lines:["Эксперт","продаж"],         k:"A"},
+    {x:W-pad-8, y:H-pad-36,     anchor:"end",   lines:["Наставник"],                k:"D"}
+  ];
+  var labelsSvg="";
+  for(var i=0;i<qLabels.length;i++){
+    var L=qLabels[i];
+    var y=L.y;
+    for(var j=0;j<L.lines.length;j++){
+      var line=L.lines[j];
+      labelsSvg+='<text x="'+L.x+'" y="'+(y+14)+'" text-anchor="'+L.anchor+'" font-size="12" font-weight="800" fill="'+TYPE_COLOR[L.k]+'" style="text-transform:uppercase;letter-spacing:.3px">'+line+'</text>';
+      y+=15;
+    }
+  }
+  function vertex(p,k,val){
+    var x=p[0], y=p[1], ux=dirs[k][0], uy=dirs[k][1];
+    var lx=x+ux*18, ly=y+uy*18;
+    return '<circle cx="'+x+'" cy="'+y+'" r="5" fill="'+TYPE_COLOR[k]+'" stroke="#000" stroke-width="1.5"/>'+
+      '<text x="'+lx+'" y="'+(ly+4)+'" text-anchor="middle" font-size="12" font-weight="800" fill="'+TYPE_COLOR[k]+'">'+(val>0?"+"+val:val)+'</text>';
+  }
+
+  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:440px;display:block" xmlns="http://www.w3.org/2000/svg">'+
+  '<rect x="'+pad+'" y="'+pad+'" width="'+(W-pad*2)+'" height="'+(H-pad*2)+'" fill="#fff" stroke="#000" stroke-width="3"/>'+
+  '<line x1="'+cx+'" y1="'+pad+'" x2="'+cx+'" y2="'+(H-pad)+'" stroke="#94a3b8" stroke-dasharray="4 4"/>'+
+  '<line x1="'+pad+'" y1="'+cy+'" x2="'+(W-pad)+'" y2="'+cy+'" stroke="#94a3b8" stroke-dasharray="4 4"/>'+
+  labelsSvg+
+  '<polygon points="'+poly+'" fill="rgba(37,99,235,0.18)" stroke="#2563eb" stroke-width="2.5"/>'+
+  vertex(pA,"A",t.A)+vertex(pB,"B",t.B)+vertex(pC,"C",t.C)+vertex(pD,"D",t.D)+
+  '<text x="'+cx+'" y="'+(pad-18)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a" style="text-transform:uppercase;letter-spacing:.5px">Управление через систему</text>'+
+  '<text x="'+cx+'" y="'+(H-pad+30)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a" style="text-transform:uppercase;letter-spacing:.5px">Личное участие</text>'+
+  '<text x="'+(pad-12)+'" y="'+(cy+4)+'" text-anchor="end" font-size="11" font-weight="700" fill="#0f172a" style="text-transform:uppercase;letter-spacing:.5px">← Задачи</text>'+
+  '<text x="'+(W-pad+12)+'" y="'+(cy+4)+'" text-anchor="start" font-size="11" font-weight="700" fill="#0f172a" style="text-transform:uppercase;letter-spacing:.5px">Люди →</text></svg>';
+}
+
+/* =================== Результат =================== */
+function renderResult(){
+  var t=computeTotals();
+  var p={A:normalize(t.A),B:normalize(t.B),C:normalize(t.C),D:normalize(t.D)};
+  var prof=determineProfile(t);
+  var pd=PROFILES[prof.key];
+
+  var adair=ADAIR_FUNCS.map(function(f){
+    var copy = {};
+    for (var key in f) copy[key] = f[key];
+    copy.value = f.calc(p);
+    return copy;
+  });
+  function fv(k){
+    for(var i=0;i<adair.length;i++) if(adair[i].key===k) return adair[i].value;
+    return 0;
+  }
+  var circles={
+    Task:(fv("setting")+fv("planning")+fv("control"))/3,
+    Team:(fv("briefing")+fv("org"))/2,
+    Individual:(fv("eval")+fv("motiv")+fv("example"))/3
+  };
+  var weak=adair.slice().sort(function(a,b){ return a.value-b.value; }).slice(0,3);
+
+  var line;
+  if(prof.kind==="balanced") line="Сбалансированный руководитель";
+  else if(prof.kind==="pure") line=TYPE_NAME[prof.key];
+  else {
+    var parts = prof.key.split("+");
+    var names = [];
+    for(var n=0;n<parts.length;n++) names.push(TYPE_NAME[parts[n]]);
+    line=names.join(" — ");
+  }
+
+  function list(arr){ var html='<ul>'; for(var i=0;i<arr.length;i++) html+='<li>'+arr[i]+'</li>'; return html+'</ul>'; }
+  function bar(label,val,color){
+    var width=Math.max(0,Math.min(100,val)).toFixed(0);
+    return '<div class="func-row"><span>'+label+'</span><div class="bar"><span style="width:'+width+'%;background:'+(color||'var(--accent)')+'"></span></div><span class="func-value">'+val.toFixed(0)+'</span></div>';
+  }
+  function circleSvg(label,val,color){
+    var v=Math.max(0,Math.min(100,val));
+    var maxR=60, cx=70, cy=70;
+    var top=cy-maxR, h=(v/100)*(maxR*2);
+    var cid="clip_"+Math.random().toString(36).slice(2,9);
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:6px"><svg width="140" height="140" viewBox="0 0 140 140">'+
+      '<defs><clipPath id="'+cid+'"><circle cx="'+cx+'" cy="'+cy+'" r="'+maxR+'"/></clipPath></defs>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+maxR+'" fill="#fff" stroke="#cbd5e1" stroke-dasharray="3 3"/>'+
+      '<rect x="'+(cx-maxR)+'" y="'+(top+(maxR*2-h))+'" width="'+(maxR*2)+'" height="'+h+'" fill="'+color+'" fill-opacity="0.35" clip-path="url(#'+cid+')"/>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+maxR+'" fill="none" stroke="'+color+'" stroke-width="2.5"/>'+
+      '<text x="'+cx+'" y="'+(cy+6)+'" text-anchor="middle" font-size="20" font-weight="800" fill="#0f172a">'+v.toFixed(0)+'</text>'+
+      '</svg><div style="font-size:13px;font-weight:700;text-align:center">'+label+'</div></div>';
+  }
+  var bars=''; for(var b=0;b<adair.length;b++) bars+=bar(adair[b].name,adair[b].value);
+  var weakHtml=''; for(var w=0;w<weak.length;w++) weakHtml+='<li><b>'+weak[w].name+'</b> ('+weak[w].value.toFixed(0)+') — '+weak[w].tip+'</li>';
+
+  $("resultContent").innerHTML = '<h1>Результат диагностики</h1><div class="profile-title">'+line+'</div>'+
+    '<div class="matrix-wrap">'+renderSail(t)+'</div>'+
+    '<h2>Интерпретация профиля</h2><div class="results-grid"><div><h3>Сильные стороны</h3>'+list(pd.strengths)+'</div><div><h3>Риски</h3>'+list(pd.risks)+'</div></div>'+
+    '<h3 style="margin-top:14px">Зона развития</h3>'+list(pd.growth)+'<div class="page-break"></div>'+
+    '<h2>Управленческие функции (модель Адэра)</h2><p style="font-size:13px">Экспертная интерпретация на основе нормализованных шкал, 0–100. Не измеряет абсолютные значения функций.</p>'+bars+
+    '<h2>Круги внимания: Task / Team / Individual</h2><div style="display:flex;justify-content:space-around;gap:16px;flex-wrap:wrap;margin-top:10px">'+
+    circleSvg("Task — задачи", circles.Task, "#2563eb")+circleSvg("Team — команда", circles.Team, "#0d9488")+circleSvg("Individual — сотрудник", circles.Individual, "#9333ea")+
+    '</div><h2>Три слабые функции — зона развития</h2><ul class="weak-list">'+weakHtml+'</ul>';
+}
+</script>
+</body>
+</html>
